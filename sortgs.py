@@ -2,7 +2,7 @@
 
 # -*- coding: utf-8 -*-
 """
-This code creates a database with a list of publications data from Google 
+This code creates a database with a list of publications data from Google
 Scholar.
 The data acquired from GS is Title, Citations, Links and Rank.
 It is useful for finding relevant papers by sorting by the number of citations
@@ -22,32 +22,45 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from time import sleep
 import warnings
+import logging
+
+
+# set logger
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
+
 
 # Solve conflict between raw_input and input on Python 2 and Python 3
 import sys
-if sys.version[0]=="3": raw_input=input
+if sys.version[0] == "3":
+    raw_input = input
 
 # Default Parameters
-KEYWORD = 'machine learning' # Default argument if command line is empty
-NRESULTS = 100 # Fetch 100 articles
-CSVPATH = '.' # Current folder
+KEYWORD = 'machine learning'  # Default argument if command line is empty
+NRESULTS = 100  # Fetch 100 articles
+CSVPATH = '.'  # Current folder
 SAVECSV = True
 SORTBY = 'Citations'
 PLOT_RESULTS = False
 STARTYEAR = None
 now = datetime.datetime.now()
 ENDYEAR = now.year # Current year
-DEBUG=False # debug mode
+DEBUG = False # debug mode
 
 
 
 # Websession Parameters
-GSCHOLAR_URL = 'https://scholar.google.com/scholar?start={}&q={}&hl=en&as_sdt=0,5'
+ARCHIVE_URL = 'https://web.archive.org/web/20210314203256/' + 'https://scholar.google.com/scholar?start={}&q={}&hl=en&as_sdt=0,5'
+GSCHOLAR_URL = 'https://scholar.google.com/scholar?start={}&as_q={}&hl=en&as_sdt=0,5'
+
 YEAR_RANGE = '' #&as_ylo={start_year}&as_yhi={end_year}'
-#GSCHOLAR_URL_YEAR = GSCHOLAR_URL+YEAR_RANGE
+AS_PUBLICATION_URL = '&as_publication={}'
+
+# GSCHOLAR_URL_YEAR = GSCHOLAR_URL+YEAR_RANGE
 STARTYEAR_URL = '&as_ylo={}'
 ENDYEAR_URL = '&as_yhi={}'
-ROBOT_KW=['unusual traffic from your computer network', 'not a robot']
+ROBOT_KW = ['unusual traffic from your computer network', 'not a robot']
+
 
 def get_command_line_args():
     # Command line arguments
@@ -61,9 +74,16 @@ def get_command_line_args():
     parser.add_argument('--startyear', type=int, help='Start year when searching. Default is None')
     parser.add_argument('--endyear', type=int, help='End year when searching. Default is current year')
     parser.add_argument('--debug', action='store_true', help='Debug mode. Used for unit testing. It will get pages stored on web archive')
+    parser.add_argument('--noarchive', action='store_true', help='default search on archive mode. Used for unit testing. It will get pages stored on web archive by default')
+    parser.add_argument('--publication', type=str, help='specify the source of publication, arxiv, etc.')
+
 
     # Parse and read arguments and assign them to variables if exists
     args, _ = parser.parse_known_args()
+
+    if args.publication and not args.noarchive:
+        logger.warning("should use --noarchive: noarchive mode NOT SUPPORT as_publication parameters")
+        sys.exit(-1)
 
     keyword = KEYWORD
     if args.kw:
@@ -96,12 +116,19 @@ def get_command_line_args():
     end_year = ENDYEAR
     if args.endyear:
         end_year=args.endyear
-    
+
     debug = DEBUG
     if args.debug:
         debug = True
 
-    return keyword, nresults, save_csv, csvpath, sortby, plot_results, start_year, end_year, debug
+    noarchive = False
+    if args.noarchive:
+        noarchive = True
+
+    if args.publication:
+        publication = args.publication
+
+    return keyword, nresults, save_csv, csvpath, sortby, plot_results, start_year, end_year, debug, noarchive, publication
 
 def get_citations(content):
     out = 0
@@ -177,23 +204,32 @@ def get_content_with_selenium(url):
 
 def main():
     # Get command line arguments
-    keyword, number_of_results, save_database, path, sortby_column, plot_results, start_year, end_year, debug = get_command_line_args()
+    keyword, number_of_results, save_database, path, sortby_column, plot_results, start_year, end_year, debug, noarchive, publication = get_command_line_args()
 
     # Create main URL based on command line arguments
-    if start_year:
-        GSCHOLAR_MAIN_URL = GSCHOLAR_URL + STARTYEAR_URL.format(start_year)
-    else:
+    if noarchive:
         GSCHOLAR_MAIN_URL = GSCHOLAR_URL
+    else:
+        GSCHOLAR_MAIN_URL = ARCHIVE_URL
+
+    # select the source
+    if publication:
+        GSCHOLAR_MAIN_URL = GSCHOLAR_MAIN_URL + AS_PUBLICATION_URL.format(publication)
+
+    if start_year:
+        GSCHOLAR_MAIN_URL = GSCHOLAR_MAIN_URL + STARTYEAR_URL.format(start_year)
 
     if end_year != now.year:
-        GSCHOLAR_MAIN_URL = GSCHOLAR_MAIN_URL + ENDYEAR_URL.format(end_year)
+        GSCHOLAR_MAIN_URL = GSCHOLAR_MAIN_URL + ENxDYEAR_URL.format(end_year)
 
     if debug:
-        GSCHOLAR_MAIN_URL='https://web.archive.org/web/20210314203256/'+GSCHOLAR_URL
+        logger.info(f"DEBUG_GSCHOLAR_MAIN_URL: {GSCHOLAR_MAIN_URL}")
+
+    logger.info(f"GSCHOLAR_MAIN_URL: {GSCHOLAR_MAIN_URL}")
 
     # Start new session
     session = requests.Session()
-    #headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
+    headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36'}
 
     # Variables
     links = []
