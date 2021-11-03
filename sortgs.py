@@ -125,6 +125,7 @@ def get_command_line_args():
     if args.noarchive:
         noarchive = True
 
+    publication = False
     if args.publication:
         publication = args.publication
 
