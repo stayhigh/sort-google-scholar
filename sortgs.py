@@ -213,7 +213,7 @@ def main():
         #    url=GSCHOLAR_URL_YEAR.format(str(n), keyword.replace(' ','+'), start_year=start_year, end_year=end_year)
 
         print("Loading next {} results".format(n+10))
-        page = session.get(url)#, headers=headers)
+        page = session.get(url, proxies={'http': 'http://127.0.0.1:1087', 'https': 'http://127.0.0.1:1087'})#, headers=headers)
         c = page.content
         if any(kw in c.decode('ISO-8859-1') for kw in ROBOT_KW):
             print("Robot checking detected, handling with selenium (if installed)")
