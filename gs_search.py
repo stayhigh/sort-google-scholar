@@ -36,8 +36,9 @@ if sys.version[0] == "3":
     raw_input = input
 
 # Default Parameters
-KEYWORD = 'machine learning'  # Default argument if command line is empty
-NRESULTS = 100  # Fetch 100 articles
+#KEYWORD = 'machine learning'  # Default argument if command line is empty
+KEYWORD = None
+#NRESULTS = 100  # Fetch 100 articles
 CSVPATH = '.'  # Current folder
 SAVECSV = True
 SORTBY = 'Citations'
@@ -65,31 +66,29 @@ ROBOT_KW = ['unusual traffic from your computer network', 'not a robot']
 def get_command_line_args():
     # Command line arguments
     parser = argparse.ArgumentParser(description='Arguments')
-    parser.add_argument('--kw', type=str, help="""Keyword to be searched. Use double quote followed by simple quote to search for an exact keyword. Example: "'exact keyword'" """)
+    parser.add_argument('-k', '--kw', type=str, required=True, help="""Keyword to be searched. Use double quote followed by simple quote to search for an exact keyword. Example: "'exact keyword'" """)
     parser.add_argument('--sortby', type=str, help='Column to be sorted by. Default is by the columns "Citations", i.e., it will be sorted by the number of citations. If you want to sort by citations per year, use --sortby "cit/year"')
-    parser.add_argument('--nresults', type=int, help='Number of articles to search on Google Scholar. Default is 100. (carefull with robot checking if value is too high)')
+    parser.add_argument('-n', '--nresults', type=int, default=20, help='Number of articles to search on Google Scholar. Default is 100. (carefull with robot checking if value is too high)')
     parser.add_argument('--csvpath', type=str, help='Path to save the exported csv file. By default it is the current folder')
     parser.add_argument('--notsavecsv', action='store_true', help='By default results are going to be exported to a csv file. Select this option to just print results but not store them')
     parser.add_argument('--plotresults', action='store_true', help='Use this flag in order to plot the results with the original rank in the x-axis and the number of citaions in the y-axis. Default is False')
     parser.add_argument('--startyear', type=int, help='Start year when searching. Default is None')
     parser.add_argument('--endyear', type=int, help='End year when searching. Default is current year')
     parser.add_argument('--debug', action='store_true', help='Debug mode. Used for unit testing. It will get pages stored on web archive')
-    parser.add_argument('--noarchive', action='store_true', help='default search on archive mode. Used for unit testing. It will get pages stored on web archive by default')
+    parser.add_argument('--archive', action='store_true', help='default search on archive mode. Used for unit testing. It will get pages stored on web archive by default')
     parser.add_argument('--publication', type=str, help='specify the source of publication, arxiv, etc.')
 
 
     # Parse and read arguments and assign them to variables if exists
     args, _ = parser.parse_known_args()
 
-    if args.publication and not args.noarchive:
-        logger.warning("should use --noarchive: noarchive mode NOT SUPPORT as_publication parameters")
+    if args.publication and args.archive:
+        logger.warning("should NOT use --archive: archive mode NOT SUPPORT as_publication parameters")
         sys.exit(-1)
 
-    keyword = KEYWORD
     if args.kw:
         keyword = args.kw
 
-    nresults = NRESULTS
     if args.nresults:
         nresults = args.nresults
 
@@ -121,15 +120,15 @@ def get_command_line_args():
     if args.debug:
         debug = True
 
-    noarchive = False
-    if args.noarchive:
-        noarchive = True
+    archive = False
+    if args.archive:
+        archive = True
 
     publication = False
     if args.publication:
         publication = args.publication
 
-    return keyword, nresults, save_csv, csvpath, sortby, plot_results, start_year, end_year, debug, noarchive, publication
+    return keyword, nresults, save_csv, csvpath, sortby, plot_results, start_year, end_year, debug, archive, publication
 
 def get_citations(content):
     out = 0
@@ -205,13 +204,13 @@ def get_content_with_selenium(url):
 
 def main():
     # Get command line arguments
-    keyword, number_of_results, save_database, path, sortby_column, plot_results, start_year, end_year, debug, noarchive, publication = get_command_line_args()
+    keyword, number_of_results, save_database, path, sortby_column, plot_results, start_year, end_year, debug, archive, publication = get_command_line_args()
 
     # Create main URL based on command line arguments
-    if noarchive:
-        GSCHOLAR_MAIN_URL = GSCHOLAR_URL
-    else:
+    if archive:
         GSCHOLAR_MAIN_URL = ARCHIVE_URL
+    else:
+        GSCHOLAR_MAIN_URL = GSCHOLAR_URL
 
     # select the source
     if publication:
