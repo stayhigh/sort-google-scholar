@@ -25,6 +25,7 @@ import warnings
 import logging
 from urllib.request import urlretrieve
 import re
+import traceback
 
 # set logger
 logging.basicConfig(level=logging.DEBUG)
@@ -78,7 +79,7 @@ def get_command_line_args():
     parser.add_argument('--plotresults', action='store_true',
                         help='Use this flag in order to plot the results with the original rank in the x-axis and the number of citaions in the y-axis. Default is False')
     parser.add_argument('--startyear', type=int, default=1980, help='Start year when searching. Default is None')
-    parser.add_argument('--endyear', type=int, default=2020,
+    parser.add_argument('--endyear', type=int, default=now.year,
                         help='End year when searching. Default is current year')
     parser.add_argument('--debug', action='store_true',
                         help='Debug mode. Used for unit testing. It will get pages stored on web archive')
@@ -86,7 +87,7 @@ def get_command_line_args():
     parser.add_argument('--archive', action='store_true',
                         help='default search on archive mode. Used for unit testing. It will get pages stored on web archive by default')
     parser.add_argument('--publication', type=str, default="arxiv",
-                        help='specify the source of publication, arxiv, etc.')
+                        help='specify the source of publication, arxiv/all, etc.')
 
     # Parse and read arguments and assign them to variables if exists
     args, _ = parser.parse_known_args()
@@ -222,7 +223,7 @@ def main():
         GSCHOLAR_MAIN_URL = GSCHOLAR_URL
 
     # select the source
-    if publication:
+    if publication != "all" and publication:
         GSCHOLAR_MAIN_URL = GSCHOLAR_MAIN_URL + AS_PUBLICATION_URL.format(publication)
 
     if start_year:
@@ -354,8 +355,21 @@ def main():
                 row['Year'],
                 row['Title'],
             )
-            download_pdf(pdf_url, dirpath=outputdir, filename=filename)
+            if not isValidUrl(pdf_url):
+                continue
+            try:
+                download_pdf(pdf_url, dirpath=outputdir, filename=filename)
+            except Exception as e:
+                logger.error('error_on_download_pdf')
+                logger.exception(e)
+                logger.debug(traceback.format_exc())
+                traceback.print_exc()
 
+def isValidUrl(url):
+    if 'Look manually at' in url:
+        return False
+
+    return True
 
 def download_pdf(pdf_url, dirpath: str = './', filename: str = '') -> str:
     """
